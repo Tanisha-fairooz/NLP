@@ -1,6 +1,6 @@
-# BERT vs SciBERT: Comparative Study
 
-## Overview
+
+## Project Overview
 
 This project compares **BERT** (general-domain pretraining) and **SciBERT** (pretrained on scientific papers) to test whether domain-specific pretraining improves performance on scientific/biomedical NLP tasks.
 
