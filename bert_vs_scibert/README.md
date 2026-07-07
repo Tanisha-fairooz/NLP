@@ -1,76 +1,61 @@
-# BERT vs SciBERT: Relation Classification & NER Comparison
+# BERT vs SciBERT: Comparative Study
 
-This notebook compares **BERT** (`bert-base-uncased`) and **SciBERT** (`allenai/scibert_scivocab_uncased`) on two scientific/biomedical NLP tasks:
+## Overview
 
-1. **Relation Classification** on the [SciERC](https://huggingface.co/datasets/nsusemiehl/SciERC) dataset
-2. **Named Entity Recognition (NER)** on the **BC5CDR** dataset (chemical entity tagging)
+This project compares **BERT** (general-domain pretraining) and **SciBERT** (pretrained on scientific papers) to test whether domain-specific pretraining improves performance on scientific/biomedical NLP tasks.
 
-For each task, both models are fine-tuned and evaluated so their performance can be directly compared.
+## Method
 
-## What's in the notebook
+**Datasets:**
+- **SciERC** — sentence-level relation classification on CS research abstracts (e.g. `USED-FOR`, `PART-OF`)
+- **BC5CDR** — token-level NER for chemical mentions (`O` / `B-Chemical`)
 
-| Cells | What it does |
-|---|---|
-| 1–2 | Install dependencies, check environment versions |
-| 3 | Load and sample the SciERC dataset (100 examples per split) |
-| 4–6 | Mount Google Drive and load the BC5CDR dataset from JSON |
-| 7 | Convert BC5CDR tags into BIO-style labels (`O` / `B-Chemical`) |
-| 8–9 | Inspect label sets for both datasets |
-| 10 | Map SciERC string labels to integer IDs |
-| 11 | Tokenization helper functions |
-| 12 | Tokenize both datasets with `bert-base-uncased` |
-| 13 | Initialize baseline BERT models |
-| 14 | Data collator and metric functions (accuracy / seqeval) |
-| 15 | `TrainingArguments` for SciERC and BC5CDR |
-| 16 | Initial `Trainer` setup (early version) |
-| 17 | **BERT** — SciERC relation classification: train + evaluate |
-| 18 | **SciBERT** — SciERC relation classification: train + evaluate |
-| 19 | **BERT** — BC5CDR NER: train + evaluate |
-| 20 | **SciBERT** — BC5CDR NER: train + evaluate |
+Both datasets are subsampled to 100 examples per split for fast iteration.
 
-Each of the four main experiment cells (17–20) reports **accuracy, precision, recall, and F1**, so you can compare BERT vs SciBERT on both tasks side by side.
+**Models:** `bert-base-uncased` vs `allenai/scibert_scivocab_uncased`, each fine-tuned with a fresh classification head (`AutoModelForSequenceClassification` for SciERC, `AutoModelForTokenClassification` for BC5CDR).
 
-## Requirements
+**Training:** Identical hyperparameters for both models per task — 2 epochs, batch size 8, learning rate 2e-5 — so pretraining corpus is the only variable that differs.
 
-- Google Colab (recommended) or a local Jupyter environment with a GPU
-- A Google Drive folder containing the BC5CDR data:
-  ```
-  /content/drive/MyDrive/BC5CDR/train.json
-  /content/drive/MyDrive/BC5CDR/test.json
-  ```
-  (each file expected in JSON-lines format, one example per line, with `tokens` and `tags` fields)
-- Internet access to download `bert-base-uncased`, `allenai/scibert_scivocab_uncased`, and the SciERC dataset from the Hugging Face Hub
+**Metrics:** Accuracy/Precision/Recall/F1 (weighted) for relation classification via `sklearn`; span-level Precision/Recall/F1/Accuracy for NER via `seqeval`.
 
-## Setup
+##  Results
 
-1. Open the notebook in Google Colab.
-2. Run the first cell to install/upgrade dependencies:
-   ```
-   pip install -U "transformers>=4.46" datasets seqeval evaluate scikit-learn accelerate -q
-   ```
-3. **Restart the runtime** (Runtime → Restart runtime) — required for the upgraded packages to load correctly.
-4. Run the version-check cell to confirm your `torch` / `transformers` / `datasets` versions.
-5. Run the remaining cells top to bottom. You'll be prompted to authorize Google Drive access when the BC5CDR loading cell runs.
+### 🔹 Relation Classification (SciERC)
+- **BERT**: Accuracy = 58%, F1 = 0.42  
+- **SciBERT**: Accuracy = 64%, F1 = 0.49  
 
-## Notes on compatibility
+### 🔹 Named Entity Recognition (BC5CDR)
+- **BERT**: Accuracy = 93.4%, F1 = 0.69  
+- **SciBERT**: Accuracy = 96.2%, F1 = 0.81  
 
-This notebook has been updated to work with recent versions of `transformers`:
-- `Trainer(..., tokenizer=...)` was replaced with `Trainer(..., processing_class=...)`, since `tokenizer` was removed from `Trainer.__init__()` in `transformers` 4.46+.
-- Dependencies are upgraded/pinned to avoid a known `torchvision`/`VideoReader` import error that can occur with mismatched `transformers`/`torchvision` versions.
+| Task | Model   | Accuracy | Precision | Recall | F1-score |
+|------|---------|----------|-----------|--------|----------|
+| RC   | BERT    | 0.58     | 0.34      | 0.58   | 0.43     |
+| RC   | SciBERT | 0.64     | 0.41      | 0.64   | 0.50     |
+| NER  | BERT    | 0.934    | 0.60      | 0.81   | 0.69     |
+| NER  | SciBERT | 0.963    | 0.76      | 0.87   | 0.81     |
 
-If you hit errors after further library updates, run the version-check cell and compare against:
-- `transformers >= 4.46`
-- a `torch`/`torchvision` pair from the same release cycle (check [pytorch.org](https://pytorch.org) for compatible pairs)
+SciBERT > BERT for both RC and NER tasks
 
-## Sample size
+## Tech Stack
 
-By default, this notebook trains on a **100-example subset** of each dataset (for fast iteration/demo purposes). For meaningful results, increase the `.select(range(100))` calls to use the full dataset splits, and increase `num_train_epochs` in `TrainingArguments` accordingly.
+**Language & Environment**
+- Python 3
+- Google Colab (GPU runtime)
 
-## Output
+**ML/NLP Libraries**
+- `transformers` (Hugging Face) — model loading, tokenization, `Trainer` API
+- `datasets` (Hugging Face) — dataset loading and processing
+- `evaluate` + `seqeval` — NER evaluation metrics
+- `scikit-learn` — classification metrics (accuracy, F1, precision, recall)
+- `accelerate` — backend for `Trainer` on GPU
+- PyTorch (`torch`) — underlying deep learning framework
 
-Each experiment prints a metrics dictionary, e.g.:
-```
-SciERC Relation Classification Results (BERT): {'eval_loss': ..., 'eval_accuracy': ..., 'eval_f1': ..., ...}
-SciERC Relation Classification Results (SciBERT): {'eval_loss': ..., 'eval_accuracy': ..., 'eval_f1': ..., ...}
-```
-Compare the BERT vs SciBERT dictionaries for each task to see which model performs better on scientific/biomedical text.
+**Models**
+- `bert-base-uncased`
+- `allenai/scibert_scivocab_uncased`
+
+**Data Sources**
+- SciERC dataset — via Hugging Face Hub (`nsusemiehl/SciERC`)
+- BC5CDR dataset — loaded from Google Drive (JSON files)
+
